@@ -1,6 +1,11 @@
 [package]
 name = "CS423-Final_Project"
+author = "Ryan Matthews <etrigan976@gmail.com>"
 version = "0.1.0"
 edition = "2021"
+readme = "README.md"
+repository = "https://github.com/etrigan976/CS423-Final_Project"
+license = "MIT"
 
 [dependencies]
+nannou = "0.19"
