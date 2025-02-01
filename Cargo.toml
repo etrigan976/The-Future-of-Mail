@@ -9,3 +9,4 @@ license = "MIT"
 
 [dependencies]
 nannou = "0.19"
+bevy = "0.15.1"
