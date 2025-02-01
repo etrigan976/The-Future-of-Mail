@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "CS423-Final_Project"
+name = "The-Future-of-Mail"
 version = "0.1.0"
 dependencies = [
  "nannou",
