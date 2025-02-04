@@ -1,6 +1,6 @@
 [package]
 name = "The-Future-of-Mail"
-author = "Ryan Matthews <etrigan976@gmail.com>"
+authors = ["Ryan Matthews <etrigan976@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
 readme = "README.md"
