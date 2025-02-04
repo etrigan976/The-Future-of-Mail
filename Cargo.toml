@@ -8,5 +8,4 @@ repository = "https://github.com/etrigan976/The-Future-of-Mail"
 license = "MIT"
 
 [dependencies]
-nannou = "0.19"
 bevy = "0.15.1"
