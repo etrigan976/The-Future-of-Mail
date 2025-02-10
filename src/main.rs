@@ -1,7 +1,14 @@
 /*
     local crate imports
 */
+/// we are using bevy for the game
 use bevy::prelude::*;
+/// IDK where i want to put prompted stuff, probably will take it out
+//use prompted::*;
+/// want to have specific flags
+/// -h help
+/// -f freecam
+//use std::env;
 /*
     global data
 */

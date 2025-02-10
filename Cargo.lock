@@ -7,6 +7,7 @@ name = "The-Future-of-Mail"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "prompted",
 ]
 
 [[package]]
@@ -3263,6 +3264,12 @@ name = "profiling"
 version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afbdc74edc00b6f6a218ca6a5364d6226a259d4b8ea1af4a0ea063f27e179f4d"
+
+[[package]]
+name = "prompted"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d34cf5bf48e2fe6e11fb6b619fb5962530f1eaf278709de5f8ea49afa7379f9b"
 
 [[package]]
 name = "quote"
