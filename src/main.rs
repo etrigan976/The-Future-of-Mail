@@ -2,7 +2,11 @@
     local crate imports
 */
 /// we are using bevy for the game
-use bevy::prelude::*;
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+    window::{PresentMode, Window, WindowPlugin, WindowTheme},
+};
 /// IDK where i want to put prompted stuff, probably will take it out
 //use prompted::*;
 /// want to have specific flags
@@ -32,7 +36,29 @@ struct Volume(u32);
 /// This function initializes the nannou framework app
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "The Future of Mail".into(),
+                    name: Some("bevy.app".into()),
+                    resolution: (1366., 768.).into(),
+                    present_mode: PresentMode::AutoVsync,
+                    fit_canvas_to_parent: true,
+                    prevent_default_event_handling: false,
+                    window_theme: Some(WindowTheme::Dark),
+                    enabled_buttons: bevy::window::EnabledButtons {
+                        maximize: false,
+                        ..Default::default()
+                    },
+                    visible: true,
+                    ..default()
+                }),
+                ..default()
+            }),
+            LogDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin::default(),
+        ))
+        //.add_plugins(DefaultPlugins)
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
         .init_state::<GameState>()
@@ -289,6 +315,8 @@ mod menu {
         Settings,
         SettingsDisplay,
         SettingsSound,
+        Help,
+        Credits,
         BackToMainMenu,
         BackToSettings,
         Quit,
