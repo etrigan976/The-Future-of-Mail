@@ -6,6 +6,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, Window, WindowPlugin, WindowTheme},
+    ecs::schedule,
 };
 /// IDK where i want to put prompted stuff, probably will take it out
 //use prompted::*;
@@ -265,6 +266,15 @@ mod menu {
                 OnExit(MenuState::SettingsSound),
                 despawn_screen::<OnSoundSettingsMenuScreen>,
             )
+            // Systems to handle the help menu screen
+            .add_systems(OnEnter(MenuState::Help), help_menu_setup)
+            .add_systems(OnExit(MenuState::Help), despawn_screen::<OnHelpMenuScreen>)
+            // Systems to handle the credits menu screen
+            .add_systems(OnEnter(MenuState::Credits), credits_menu_setup)
+            .add_systems(
+                OnExit(MenuState::Credits),
+                despawn_screen::<OnCreditsMenuScreen>,
+            )
             // Common systems to all screens that handles buttons behavior
             .add_systems(
                 Update,
@@ -279,6 +289,8 @@ mod menu {
         Settings,
         SettingsDisplay,
         SettingsSound,
+        Help,
+        Credits,
         #[default]
         Disabled,
     }
@@ -286,7 +298,13 @@ mod menu {
     // Tag component used to tag entities added on the main menu screen
     #[derive(Component)]
     struct OnMainMenuScreen;
+    #[derive(Component)]
+    struct OnHelpMenuScreen;
 
+    #[derive(Component)]
+    struct OnCreditsMenuScreen;
+    #[derive(Resource, Deref, DerefMut)]
+    struct CreditsTimer(Timer);
     // Tag component used to tag entities added on the settings menu screen
     #[derive(Component)]
     struct OnSettingsMenuScreen;
@@ -424,6 +442,8 @@ mod menu {
                         // Display three buttons for each action available from the main menu:
                         // - new game
                         // - settings
+                        // - Help
+                        // - Credits
                         // - quit
                         parent
                             .spawn((
@@ -457,19 +477,52 @@ mod menu {
                                     TextColor(TXT_CLR),
                                 ));
                             });
+
                         parent
                             .spawn((
                                 Button,
-                                button_node,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Help,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("Images/Help.png");
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
+                                parent.spawn((
+                                    Text::new("Help"),
+                                    button_text_font.clone(),
+                                    TextColor(TXT_CLR),
+                                ));
+                            });
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Credits,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("Images/quent_model_1.png");
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
+                                parent.spawn((
+                                    Text::new("Credits"),
+                                    button_text_font.clone(),
+                                    TextColor(TXT_CLR),
+                                ));
+                            });
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
                                 BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Quit,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("Images/quent_model_1.png");
-                                parent.spawn((ImageNode::new(icon), button_icon_node));
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("Quit"),
-                                    button_text_font,
+                                    button_text_font.clone(),
                                     TextColor(TXT_CLR),
                                 ));
                             });
@@ -710,7 +763,193 @@ mod menu {
                     });
             });
     }
+    fn help_menu_setup(mut commands: Commands) {
+        let button_node = Node {
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        };
 
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TXT_CLR),
+        );
+
+        let controls_text_style = (
+            TextFont {
+                font_size: 25.0,
+                ..default()
+            },
+            TextColor(TXT_CLR),
+        );
+
+        let controls = [
+            ("esc", "return to main menu"),
+            ("w", "forward"),
+            ("s", "backward"),
+            ("a", "left"),
+            ("d", "right"),
+            ("up arrow", "camera angle down"),
+            ("down arrow", "camera angle up"),
+            ("left arrow", "camera angle right"),
+            ("right arrow", "camera angle left"),
+        ];
+
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                OnHelpMenuScreen,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(CRIMSON.into()),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new("Help Menu"),
+                            TextFont {
+                                font_size: 67.0,
+                                ..default()
+                            },
+                            TextColor(TXT_CLR),
+                            Node {
+                                margin: UiRect::all(Val::Px(50.0)),
+                                ..default()
+                            },
+                        ));
+
+                        for (key, action) in controls.iter() {
+                            parent
+                                .spawn(Node {
+                                    flex_direction: FlexDirection::Row,
+                                    align_items: AlignItems::Center,
+                                    margin: UiRect::all(Val::Px(10.0)),
+                                    ..default()
+                                })
+                                .with_children(|parent| {
+                                    parent.spawn((
+                                        Text::new(*key),
+                                        controls_text_style.clone(),
+                                        Node {
+                                            width: Val::Px(150.0),
+                                            ..default()
+                                        },
+                                    ));
+                                    parent.spawn((
+                                        Text::new("\t"),
+                                        controls_text_style.clone(),
+                                        Node {
+                                            width: Val::Px(10.0),
+                                            ..default()
+                                        },
+                                    ));
+                                    parent.spawn((
+                                        Text::new(*action),
+                                        controls_text_style.clone(),
+                                        Node {
+                                            width: Val::Px(300.0),
+                                            ..default()
+                                        },
+                                    ));
+                                });
+                        }
+
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::BackToMainMenu,
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn((Text::new("Back"), button_text_style.clone()));
+                            });
+                    });
+            });
+    }
+    fn credits_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        let button_node = Node {
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        };
+
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TXT_CLR),
+        );
+
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                OnCreditsMenuScreen,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(CRIMSON.into()),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new("Credits Menu"),
+                            TextFont {
+                                font_size: 67.0,
+                                ..default()
+                            },
+                            TextColor(TXT_CLR),
+                            Node {
+                                margin: UiRect::all(Val::Px(50.0)),
+                                ..default()
+                            },
+                        ));
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::BackToMainMenu,
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn((Text::new("Back"), button_text_style.clone()));
+                            });
+                    });
+            });
+    }
     fn menu_action(
         interaction_query: Query<
             (&Interaction, &MenuButtonAction),
@@ -741,6 +980,8 @@ mod menu {
                     MenuButtonAction::BackToSettings => {
                         menu_state.set(MenuState::Settings);
                     }
+                    MenuButtonAction::Help => menu_state.set(MenuState::Help),
+                    MenuButtonAction::Credits => menu_state.set(MenuState::Credits),
                 }
             }
         }
