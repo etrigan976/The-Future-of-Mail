@@ -5,7 +5,6 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::camera,
     window::{PresentMode, Window, WindowPlugin, WindowTheme}, //ecs::schedule,
 };
 /// IDK where i want to put prompted stuff, probably will take it out
@@ -114,13 +113,8 @@ mod splash {
     }
 }
 mod game {
-    //use super::{despawn_screen, DisplayQuality, GameState, Volume, TXT_CLR};
-    use super::{despawn_screen, GameState, TXT_CLR};
-    use bevy::{
-        //color::palettes::basic::{BLUE, LIME},
-        prelude::*,
-    };
-    //use bevy_atmosphere::prelude::*;
+    use super::{despawn_screen, GameState};
+    use bevy::prelude::*;
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
             .add_systems(Update, game.run_if(in_state(GameState::Game)))

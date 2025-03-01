@@ -9,4 +9,3 @@ license = "MIT"
 
 [dependencies]
 bevy = "0.15.1"
-bevy_atmosphere = "0.7"
