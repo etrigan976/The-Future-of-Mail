@@ -328,7 +328,7 @@ mod menu {
                                 MenuButtonAction::Play,
                             ))
                             .with_children(|parent| {
-                                let icon = asset_server.load("Images/quent_model_1.png");
+                                let icon = asset_server.load("Images/new_game.png");
                                 parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("New Game"),
