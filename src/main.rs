@@ -5,8 +5,8 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, Window, WindowPlugin, WindowTheme},
-    //ecs::schedule,
+    render::camera,
+    window::{PresentMode, Window, WindowPlugin, WindowTheme}, //ecs::schedule,
 };
 /// IDK where i want to put prompted stuff, probably will take it out
 //use prompted::*;
@@ -59,7 +59,13 @@ fn main() {
         .run();
 }
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d::default(),
+        Camera {
+            order: 0,
+            ..default()
+        },
+    ));
 }
 mod splash {
     use super::{despawn_screen, GameState};
@@ -141,6 +147,10 @@ mod game {
             .spawn((
                 Camera3d::default(),
                 Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+                Camera {
+                    order: 1,
+                    ..default()
+                },
             ))
             .insert(AtmosphereCamera::default());
 
@@ -241,7 +251,6 @@ mod menu {
             }
         }
     }
-
 
     fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
         menu_state.set(MenuState::Main);
@@ -504,9 +513,9 @@ mod menu {
                         game_state.set(GameState::Game);
                         menu_state.set(MenuState::Disabled);
                     }
-                    
+
                     MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main),
-                    
+
                     MenuButtonAction::Help => menu_state.set(MenuState::Help),
                 }
             }
