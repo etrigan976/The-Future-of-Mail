@@ -855,7 +855,7 @@ mod menu {
                     });
             });
     }
-    
+
     fn menu_action(
         interaction_query: Query<
             (&Interaction, &MenuButtonAction),
