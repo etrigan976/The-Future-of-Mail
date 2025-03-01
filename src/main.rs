@@ -44,14 +44,7 @@ fn main() {
                     name: Some("bevy.app".into()),
                     resolution: (1280., 720.).into(),
                     present_mode: PresentMode::AutoVsync,
-                    fit_canvas_to_parent: true,
-                    prevent_default_event_handling: false,
                     window_theme: Some(WindowTheme::Dark),
-                    enabled_buttons: bevy::window::EnabledButtons {
-                        maximize: false,
-                        ..Default::default()
-                    },
-                    visible: true,
                     ..default()
                 }),
                 ..default()
@@ -83,7 +76,7 @@ mod splash {
     #[derive(Resource, Deref, DerefMut)]
     struct SplashTimer(Timer);
     fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        let icon = asset_server.load("Images/quent_model_1.png");
+        let icon = asset_server.load("Images/load_clock_1.png");
         commands
             .spawn((
                 Node {
@@ -117,9 +110,10 @@ mod splash {
     }
 }
 mod game {
-    use super::{despawn_screen, DisplayQuality, GameState, Volume, TXT_CLR};
+    //use super::{despawn_screen, DisplayQuality, GameState, Volume, TXT_CLR};
+    use super::{despawn_screen, GameState, TXT_CLR};
     use bevy::{
-        color::palettes::basic::{BLUE, LIME},
+        //color::palettes::basic::{BLUE, LIME},
         prelude::*,
     };
     pub fn game_plugin(app: &mut App) {
@@ -131,10 +125,11 @@ mod game {
     struct OnGameScreen;
     #[derive(Resource, Deref, DerefMut)]
     struct GameTimer(Timer);
+    /// this is where the magic happens
     fn game_setup(
         mut commands: Commands,
-        display_quality: Res<DisplayQuality>,
-        volume: Res<Volume>,
+        //display_quality: Res<DisplayQuality>,
+        //volume: Res<Volume>,
     ) {
         commands
             .spawn((
@@ -146,65 +141,17 @@ mod game {
                     ..default()
                 },
                 OnGameScreen,
-            ))
-            .with_children(|parent| {
-                parent
-                    .spawn((
-                        Node {
-                            flex_direction: FlexDirection::Column,
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        BackgroundColor(Color::BLACK),
-                    ))
-                    .with_children(|p| {
-                        p.spawn((
-                            Text::new("Will be back to the menu shortly..."),
-                            TextFont {
-                                font_size: 67.0,
-                                ..default()
-                            },
-                            TextColor(TXT_CLR),
-                            Node {
-                                margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
-                            },
-                        ));
-                        p.spawn((
-                            Text::default(),
-                            Node {
-                                margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
-                            },
-                        ))
-                        .with_children(|p| {
-                            p.spawn((
-                                TextSpan(format!("quality: {:?}", *display_quality)),
-                                TextFont {
-                                    font_size: 50.0,
-                                    ..default()
-                                },
-                                TextColor(BLUE.into()),
-                            ));
-                            p.spawn((
-                                TextSpan::new(" - "),
-                                TextFont {
-                                    font_size: 50.0,
-                                    ..default()
-                                },
-                                TextColor(TXT_CLR),
-                            ));
-                            p.spawn((
-                                TextSpan(format!("volume: {:?}", *volume)),
-                                TextFont {
-                                    font_size: 50.0,
-                                    ..default()
-                                },
-                                TextColor(LIME.into()),
-                            ));
-                        });
-                    });
-            });
+            ));
+            commands.spawn((
+                Sprite {
+                        color: Color::srgb(0.5, 0.5, 1.0),
+                        custom_size: Some(Vec2::new(100.0, 100.0)),
+                        ..default()
+                },
+                Transform::default(),
+                Visibility::default(),
+                OnGameScreen,
+            ));
         commands.insert_resource(GameTimer(Timer::from_seconds(5.0, TimerMode::Once)));
     }
     fn game(
