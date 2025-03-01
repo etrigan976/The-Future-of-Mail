@@ -115,6 +115,8 @@ mod game {
     use bevy::{
         //color::palettes::basic::{BLUE, LIME},
         prelude::*,
+        render::render_resource::Face,
+        pbr::Skybox,
     };
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
@@ -128,30 +130,33 @@ mod game {
     /// this is where the magic happens
     fn game_setup(
         mut commands: Commands,
-        //display_quality: Res<DisplayQuality>,
-        //volume: Res<Volume>,
+        asset_server: Res<AssetServer>,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
-        commands
-            .spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                OnGameScreen,
-            ));
-            commands.spawn((
-                Sprite {
-                        color: Color::srgb(0.5, 0.5, 1.0),
-                        custom_size: Some(Vec2::new(100.0, 100.0)),
-                        ..default()
-                },
-                Transform::default(),
-                Visibility::default(),
-                OnGameScreen,
-            ));
+        // Create a light blue color for the skybox
+        let skybox_color = Color::srgb(0.53, 0.81, 0.98);
+
+        // Create a skybox material
+        let skybox_material = materials.add(StandardMaterial {
+            base_color: skybox_color,
+            unlit: true,
+            ..default()
+        });
+
+        // Spawn the skybox
+        commands.spawn((
+            Mesh3d(meshes.add(Mesh::from(shape::Cube { size: 1000.0 }))),
+            MeshMaterial3d(skybox_material),
+        ));
+
+        // Load the 3D model
+        let model_handle = asset_server.load("Models/quent_model_1.gltf#Scene0");
+
+        // Spawn the 3D model
+        commands.spawn((SceneRoot(model_handle), Transform::from_xyz(0.0, 0.0, 0.0)));
+
+        // Insert the game timer resource
         commands.insert_resource(GameTimer(Timer::from_seconds(5.0, TimerMode::Once)));
     }
     fn game(
