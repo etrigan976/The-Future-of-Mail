@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, Window, WindowPlugin, WindowTheme},
-    ecs::schedule,
+    //ecs::schedule,
 };
 /// IDK where i want to put prompted stuff, probably will take it out
 //use prompted::*;
@@ -42,7 +42,7 @@ fn main() {
                 primary_window: Some(Window {
                     title: "The Future of Mail".into(),
                     name: Some("bevy.app".into()),
-                    resolution: (1366., 768.).into(),
+                    resolution: (1280., 720.).into(),
                     present_mode: PresentMode::AutoVsync,
                     fit_canvas_to_parent: true,
                     prevent_default_event_handling: false,
@@ -269,12 +269,6 @@ mod menu {
             // Systems to handle the help menu screen
             .add_systems(OnEnter(MenuState::Help), help_menu_setup)
             .add_systems(OnExit(MenuState::Help), despawn_screen::<OnHelpMenuScreen>)
-            // Systems to handle the credits menu screen
-            .add_systems(OnEnter(MenuState::Credits), credits_menu_setup)
-            .add_systems(
-                OnExit(MenuState::Credits),
-                despawn_screen::<OnCreditsMenuScreen>,
-            )
             // Common systems to all screens that handles buttons behavior
             .add_systems(
                 Update,
@@ -290,7 +284,6 @@ mod menu {
         SettingsDisplay,
         SettingsSound,
         Help,
-        Credits,
         #[default]
         Disabled,
     }
@@ -300,11 +293,6 @@ mod menu {
     struct OnMainMenuScreen;
     #[derive(Component)]
     struct OnHelpMenuScreen;
-
-    #[derive(Component)]
-    struct OnCreditsMenuScreen;
-    #[derive(Resource, Deref, DerefMut)]
-    struct CreditsTimer(Timer);
     // Tag component used to tag entities added on the settings menu screen
     #[derive(Component)]
     struct OnSettingsMenuScreen;
@@ -334,7 +322,6 @@ mod menu {
         SettingsDisplay,
         SettingsSound,
         Help,
-        Credits,
         BackToMainMenu,
         BackToSettings,
         Quit,
@@ -443,7 +430,6 @@ mod menu {
                         // - new game
                         // - settings
                         // - Help
-                        // - Credits
                         // - quit
                         parent
                             .spawn((
@@ -490,22 +476,6 @@ mod menu {
                                 parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("Help"),
-                                    button_text_font.clone(),
-                                    TextColor(TXT_CLR),
-                                ));
-                            });
-                        parent
-                            .spawn((
-                                Button,
-                                button_node.clone(),
-                                BackgroundColor(NORMAL_BUTTON),
-                                MenuButtonAction::Credits,
-                            ))
-                            .with_children(|parent| {
-                                let icon = asset_server.load("Images/quent_model_1.png");
-                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
-                                parent.spawn((
-                                    Text::new("Credits"),
                                     button_text_font.clone(),
                                     TextColor(TXT_CLR),
                                 ));
@@ -885,71 +855,7 @@ mod menu {
                     });
             });
     }
-    fn credits_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        let button_node = Node {
-            width: Val::Px(200.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        };
-
-        let button_text_style = (
-            TextFont {
-                font_size: 33.0,
-                ..default()
-            },
-            TextColor(TXT_CLR),
-        );
-
-        commands
-            .spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                OnCreditsMenuScreen,
-            ))
-            .with_children(|parent| {
-                parent
-                    .spawn((
-                        Node {
-                            flex_direction: FlexDirection::Column,
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        BackgroundColor(CRIMSON.into()),
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn((
-                            Text::new("Credits Menu"),
-                            TextFont {
-                                font_size: 67.0,
-                                ..default()
-                            },
-                            TextColor(TXT_CLR),
-                            Node {
-                                margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
-                            },
-                        ));
-                        parent
-                            .spawn((
-                                Button,
-                                button_node.clone(),
-                                BackgroundColor(NORMAL_BUTTON),
-                                MenuButtonAction::BackToMainMenu,
-                            ))
-                            .with_children(|parent| {
-                                parent.spawn((Text::new("Back"), button_text_style.clone()));
-                            });
-                    });
-            });
-    }
+    
     fn menu_action(
         interaction_query: Query<
             (&Interaction, &MenuButtonAction),
@@ -981,7 +887,6 @@ mod menu {
                         menu_state.set(MenuState::Settings);
                     }
                     MenuButtonAction::Help => menu_state.set(MenuState::Help),
-                    MenuButtonAction::Credits => menu_state.set(MenuState::Credits),
                 }
             }
         }
