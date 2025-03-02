@@ -30,6 +30,12 @@ enum DisplayQuality {
 }
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
+#[derive(Component)]
+struct RotatableCamera {
+    radius: f32,
+    yaw: f32,
+    pitch: f32,
+}
 /// # main function
 /// This function initializes the nannou framework app
 fn main() {
@@ -113,11 +119,16 @@ mod splash {
     }
 }
 mod game {
+    use crate::RotatableCamera;
+
     use super::{despawn_screen, GameState};
-    use bevy::prelude::*;
+    use bevy::{input::ButtonInput, prelude::*};
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
-            .add_systems(Update, game.run_if(in_state(GameState::Game)))
+            .add_systems(
+                Update,
+                (game, rotate_camera).run_if(in_state(GameState::Game)),
+            )
             .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
     }
     #[derive(Component)]
@@ -129,21 +140,59 @@ mod game {
 
     #[derive(Resource, Default)]
     pub struct AtmosphereModel;
-    /// this is where the magic happens
-    fn game_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
+    fn rotate_camera(
+        keyboard_input: Res<ButtonInput<KeyCode>>,
+        mut query: Query<(&mut Transform, &mut RotatableCamera)>,
+        time: Res<Time>,
     ) {
+        for (mut transform, mut camera) in query.iter_mut() {
+            let speed = 1.5 * time.delta_secs();
+
+            // Adjust yaw (left/right) and pitch (up/down)
+            if keyboard_input.pressed(KeyCode::ArrowLeft) {
+                camera.yaw += speed;
+            }
+            if keyboard_input.pressed(KeyCode::ArrowRight) {
+                camera.yaw -= speed;
+            }
+            if keyboard_input.pressed(KeyCode::ArrowUp) {
+                camera.pitch += speed;
+            }
+            if keyboard_input.pressed(KeyCode::ArrowDown) {
+                camera.pitch -= speed;
+            }
+
+            // Clamp pitch to avoid flipping the camera
+            camera.pitch = camera.pitch.clamp(
+                -std::f32::consts::FRAC_PI_2 + 0.1,
+                std::f32::consts::FRAC_PI_2 - 0.1,
+            );
+
+            // Compute new position
+            let x = camera.radius * camera.yaw.cos() * camera.pitch.cos();
+            let y = camera.radius * camera.pitch.sin();
+            let z = camera.radius * camera.yaw.sin() * camera.pitch.cos();
+
+            transform.translation = Vec3::new(x, y, z);
+            transform.look_at(Vec3::ZERO, Vec3::Y);
+        }
+    }
+
+    /// this is where the magic happens
+    fn game_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Spawn the atmosphere camera component
         commands
             .spawn((
                 Camera3d::default(),
-                Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+                Transform::from_xyz(300.0, 300.0, 100.0).looking_at(Vec3::ZERO, Vec3::Y),
                 Camera {
                     order: 1,
                     ..default()
+                },
+                RotatableCamera {
+                    radius: 300.0,
+                    yaw: 0.0,
+                    pitch: 0.0,
                 },
             ))
             .insert(AtmosphereCamera::default());
@@ -152,9 +201,10 @@ mod game {
         commands.insert_resource(AtmosphereModel::default());
 
         // Load and spawn the 3D model
-        let model_handle = asset_server.load("Models/quent_model_1.gltf#Scene0");
-
+        let model_handle = asset_server.load("Models/island.glb#Scene0");
         commands.spawn((SceneRoot(model_handle), Transform::from_xyz(0.0, 0.0, 0.0)));
+        let building = asset_server.load("Models/building1.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(0.0, 1.1, 0.0)));
         commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
     }
     fn game(
