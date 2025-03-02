@@ -53,7 +53,7 @@ fn main() {
                 ..default()
             }),
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin,
         ))
         //.add_plugins(DefaultPlugins)
         .insert_resource(DisplayQuality::Medium)
@@ -65,7 +65,7 @@ fn main() {
 }
 fn setup(mut commands: Commands) {
     commands.spawn((
-        Camera2d::default(),
+        Camera2d,
         Camera {
             order: 0,
             ..default()
@@ -119,15 +119,14 @@ mod splash {
     }
 }
 mod game {
-    use crate::RotatableCamera;
-
     use super::{despawn_screen, GameState};
+    use crate::RotatableCamera;
     use bevy::{input::ButtonInput, prelude::*};
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
             .add_systems(
                 Update,
-                (game, rotate_camera).run_if(in_state(GameState::Game)),
+                (game, rotate_camera, return_to_main).run_if(in_state(GameState::Game)),
             )
             .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
     }
@@ -177,7 +176,14 @@ mod game {
             transform.look_at(Vec3::ZERO, Vec3::Y);
         }
     }
-
+    fn return_to_main(
+        keyboard_input: Res<ButtonInput<KeyCode>>,
+        mut game_state: ResMut<NextState<GameState>>,
+    ) {
+        if keyboard_input.just_pressed(KeyCode::Escape) {
+            game_state.set(GameState::Menu);
+        }
+    }
     /// this is where the magic happens
     fn game_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Spawn the atmosphere camera component
@@ -195,10 +201,10 @@ mod game {
                     pitch: 0.0,
                 },
             ))
-            .insert(AtmosphereCamera::default());
+            .insert(AtmosphereCamera);
 
         // Insert the default atmosphere model
-        commands.insert_resource(AtmosphereModel::default());
+        commands.insert_resource(AtmosphereModel);
 
         // Load and spawn the 3D model
         let model_handle = asset_server.load("Models/island.glb#Scene0");
