@@ -128,7 +128,7 @@ mod game {
                 Update,
                 (game, rotate_camera, return_to_main).run_if(in_state(GameState::Game)),
             )
-            .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
+            .add_systems(OnExit(GameState::Game), (despawn_screen::<OnGameScreen>, despawn_models));
     }
     #[derive(Component)]
     struct OnGameScreen;
@@ -136,9 +136,10 @@ mod game {
     struct GameTimer(Timer);
     #[derive(Component, Default)]
     pub struct AtmosphereCamera;
-
     #[derive(Resource, Default)]
     pub struct AtmosphereModel;
+    #[derive (Component)]
+    struct SpawnedModel;
     fn rotate_camera(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut query: Query<(&mut Transform, &mut RotatableCamera)>,
@@ -179,8 +180,13 @@ mod game {
     fn return_to_main(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut game_state: ResMut<NextState<GameState>>,
+        mut commands: Commands,
+        query: Query<Entity, With<SpawnedModel>>,
     ) {
         if keyboard_input.just_pressed(KeyCode::Escape) {
+            for entity in query.iter() {
+                commands.entity(entity).despawn_recursive();
+            }
             game_state.set(GameState::Menu);
         }
     }
@@ -205,13 +211,35 @@ mod game {
 
         // Insert the default atmosphere model
         commands.insert_resource(AtmosphereModel);
-
         // Load and spawn the 3D model
         let model_handle = asset_server.load("Models/island.glb#Scene0");
-        commands.spawn((SceneRoot(model_handle), Transform::from_xyz(0.0, 0.0, 0.0)));
+        commands.spawn((SceneRoot(model_handle), Transform::from_xyz(0.0, 0.0, 0.0), SpawnedModel));
         let building = asset_server.load("Models/building1.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(0.0, 1.1, 0.0)));
+        commands.spawn((SceneRoot(building), Transform::from_xyz(0.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building2.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(40.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building3.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(80.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building4.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(120.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building5.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(160.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building1.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(-40.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building2.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(-80.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building3.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(-120.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building4.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(-160.0, 1.1, 0.0), SpawnedModel));
+        let building = asset_server.load("Models/building5.glb#Scene0");
+        commands.spawn((SceneRoot(building), Transform::from_xyz(0.0, 1.1, 40.0), SpawnedModel));
         commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
+    }
+    fn despawn_models(mut commands: Commands, query: Query<Entity, With<SpawnedModel>>) {
+        for entity in query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
     }
     fn game(
         time: Res<Time>,
