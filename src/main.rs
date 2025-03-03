@@ -212,28 +212,45 @@ mod game {
         // Insert the default atmosphere model
         commands.insert_resource(AtmosphereModel);
         // Load and spawn the 3D model
+        let building_list = [
+            ("Models/building1.glb#Scene0"),
+            ("Models/building2.glb#Scene0"),
+            ("Models/building3.glb#Scene0"),
+            ("Models/building4.glb#Scene0"),
+            ("Models/building5.glb#Scene0"),
+            ("Models/building1.glb#Scene0"),
+            ("Models/building2.glb#Scene0"),
+            ("Models/building3.glb#Scene0"),
+            ("Models/building4.glb#Scene0"),
+            ("Models/building5.glb#Scene0"),
+        ];
+        let building_coords = [
+            (0.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (40.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (80.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (120.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (160.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (-40.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (-80.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (-120.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (-160.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (0.0, 1.1, 40.0, 0.0, 0.0, 0.0),
+        ];
         let model_handle = asset_server.load("Models/island.glb#Scene0");
         commands.spawn((SceneRoot(model_handle), Transform::from_xyz(0.0, 0.0, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building1.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(0.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building2.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(40.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building3.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(80.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building4.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(120.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building5.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(160.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building1.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(-40.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building2.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(-80.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building3.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(-120.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building4.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(-160.0, 1.1, 0.0), SpawnedModel));
-        let building = asset_server.load("Models/building5.glb#Scene0");
-        commands.spawn((SceneRoot(building), Transform::from_xyz(0.0, 1.1, 40.0), SpawnedModel));
+        for (model, coords) in building_list.iter().zip(building_coords.iter()) {
+            let building = asset_server.load(*model);
+            let rotation = Quat::from_euler(EulerRot::XYZ, coords.3, coords.4, coords.5);
+            commands.spawn((
+                SceneRoot(building),
+                Transform {
+                    translation: Vec3::new(coords.0, coords.1, coords.2),
+                    rotation,
+                    ..default()
+                },
+                SpawnedModel,
+            ));
+        }
         commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
     }
     fn despawn_models(mut commands: Commands, query: Query<Entity, With<SpawnedModel>>) {
