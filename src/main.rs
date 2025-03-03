@@ -119,6 +119,7 @@ mod splash {
     }
 }
 mod game {
+
     use super::{despawn_screen, GameState};
     use crate::RotatableCamera;
     use bevy::{input::ButtonInput, prelude::*};
@@ -126,9 +127,13 @@ mod game {
         app.add_systems(OnEnter(GameState::Game), game_setup)
             .add_systems(
                 Update,
-                (game, rotate_camera, return_to_main).run_if(in_state(GameState::Game)),
+                (game, rotate_camera, move_player, return_to_main)
+                    .run_if(in_state(GameState::Game)),
             )
-            .add_systems(OnExit(GameState::Game), (despawn_screen::<OnGameScreen>, despawn_models));
+            .add_systems(
+                OnExit(GameState::Game),
+                (despawn_screen::<OnGameScreen>, despawn_models),
+            );
     }
     #[derive(Component)]
     struct OnGameScreen;
@@ -138,17 +143,24 @@ mod game {
     pub struct AtmosphereCamera;
     #[derive(Resource, Default)]
     pub struct AtmosphereModel;
-    #[derive (Component)]
+    #[derive(Component)]
     struct SpawnedModel;
+    #[derive(Component)]
+    struct PlayerModel;
     fn rotate_camera(
         keyboard_input: Res<ButtonInput<KeyCode>>,
-        mut query: Query<(&mut Transform, &mut RotatableCamera)>,
+        mut param_set: ParamSet<(
+            Query<(&mut Transform, &mut RotatableCamera)>,
+            Query<&Transform, With<PlayerModel>>,
+        )>,
         time: Res<Time>,
     ) {
-        for (mut transform, mut camera) in query.iter_mut() {
+        let player_transform = param_set.p1().get_single().ok().cloned(); // Fetch player transform first
+
+        let mut camera_query = param_set.p0();
+        for (mut transform, mut camera) in camera_query.iter_mut() {
             let speed = 1.5 * time.delta_secs();
 
-            // Adjust yaw (left/right) and pitch (up/down)
             if keyboard_input.pressed(KeyCode::ArrowLeft) {
                 camera.yaw += speed;
             }
@@ -162,32 +174,54 @@ mod game {
                 camera.pitch -= speed;
             }
 
-            // Clamp pitch to avoid flipping the camera
             camera.pitch = camera.pitch.clamp(
                 -std::f32::consts::FRAC_PI_2 + 0.1,
                 std::f32::consts::FRAC_PI_2 - 0.1,
             );
 
-            // Compute new position
-            let x = camera.radius * camera.yaw.cos() * camera.pitch.cos();
-            let y = camera.radius * camera.pitch.sin();
-            let z = camera.radius * camera.yaw.sin() * camera.pitch.cos();
+            if let Some(player_transform) = player_transform {
+                let x = player_transform.translation.x
+                    + camera.radius * camera.yaw.cos() * camera.pitch.cos();
+                let y = player_transform.translation.y + camera.radius * camera.pitch.sin();
+                let z = player_transform.translation.z
+                    + camera.radius * camera.yaw.sin() * camera.pitch.cos();
 
-            transform.translation = Vec3::new(x, y, z);
-            transform.look_at(Vec3::ZERO, Vec3::Y);
+                transform.translation = Vec3::new(x, y, z);
+                transform.look_at(player_transform.translation, Vec3::Y);
+            }
         }
     }
-    fn return_to_main(
+    fn move_player(
         keyboard_input: Res<ButtonInput<KeyCode>>,
-        mut game_state: ResMut<NextState<GameState>>,
-        mut commands: Commands,
-        query: Query<Entity, With<SpawnedModel>>,
+        mut query: Query<(&mut Transform, &mut PlayerModel)>,
+        time: Res<Time>,
     ) {
-        if keyboard_input.just_pressed(KeyCode::Escape) {
-            for entity in query.iter() {
-                commands.entity(entity).despawn_recursive();
+        let speed = 50.0;
+        let rotation_speed = 3.0;
+        for (mut transform, _player_model) in query.iter_mut() {
+            let mut direction = Vec3::ZERO;
+            if keyboard_input.pressed(KeyCode::KeyW) {
+                direction.x += 1.0;
             }
-            game_state.set(GameState::Menu);
+            if keyboard_input.pressed(KeyCode::KeyS) {
+                direction.x -= 1.0;
+            }
+            if keyboard_input.pressed(KeyCode::KeyA) {
+                direction.z -= 1.0;
+            }
+            if keyboard_input.pressed(KeyCode::KeyD) {
+                direction.z += 1.0;
+            }
+            if direction != Vec3::ZERO {
+                direction = direction.normalize();
+                transform.translation += direction * speed * time.delta_secs();
+                if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::KeyD) {
+                    let target_rotation = Quat::from_rotation_arc(Vec3::Z, direction);
+                    transform.rotation = transform
+                        .rotation
+                        .slerp(target_rotation, rotation_speed * time.delta_secs());
+                }
+            }
         }
     }
     /// this is where the magic happens
@@ -202,9 +236,9 @@ mod game {
                     ..default()
                 },
                 RotatableCamera {
-                    radius: 300.0,
-                    yaw: 0.0,
-                    pitch: 0.0,
+                    radius: 350.0,
+                    yaw: std::f32::consts::PI,
+                    pitch: 1.0,
                 },
             ))
             .insert(AtmosphereCamera);
@@ -225,19 +259,30 @@ mod game {
             ("Models/building5.glb#Scene0"),
         ];
         let building_coords = [
-            (0.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (40.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (80.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (120.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (160.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (-40.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (-80.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (-120.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (-160.0, 1.1, 0.0, 0.0, 0.0, 0.0),
-            (0.0, 1.1, 40.0, 0.0, 0.0, 0.0),
+            (180.0, 1.1, 0.0, 0.0, 83.25, 0.0),
+            (150.0, 1.1, -50.0, 0.0, 0.0, 0.0),
+            (150.0, 1.1, 30.0, 0.0, 0.0, 0.0),
+            (140.0, 1.1, -110.0, 0.0, 0.0, 0.0),
+            (-200.0, 1.1, 0.0, 0.0, 0.0, 0.0),
+            (-141.42, 1.1, -141.42, 0.0, 0.0, 0.0),
+            (0.0, 1.1, -200.0, 0.0, 0.0, 0.0),
+            (141.42, 1.1, -141.42, 0.0, 0.0, 0.0),
+            (100.0, 1.1, 173.21, 0.0, 0.0, 0.0),
+            (-100.0, 1.1, 173.21, 0.0, 0.0, 0.0),
         ];
         let model_handle = asset_server.load("Models/island.glb#Scene0");
-        commands.spawn((SceneRoot(model_handle), Transform::from_xyz(0.0, 0.0, 0.0), SpawnedModel));
+        commands.spawn((
+            SceneRoot(model_handle),
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            SpawnedModel,
+        ));
+        let player_model = asset_server.load("Models/bot_main.glb#Scene0");
+        commands.spawn((
+            SceneRoot(player_model),
+            Transform::from_xyz(0.0, 1.1, 0.0),
+            SpawnedModel,
+            PlayerModel,
+        ));
         for (model, coords) in building_list.iter().zip(building_coords.iter()) {
             let building = asset_server.load(*model);
             let rotation = Quat::from_euler(EulerRot::XYZ, coords.3, coords.4, coords.5);
@@ -264,6 +309,14 @@ mod game {
         mut timer: ResMut<GameTimer>,
     ) {
         if timer.tick(time.delta()).finished() {
+            game_state.set(GameState::Menu);
+        }
+    }
+    fn return_to_main(
+        keyboard_input: Res<ButtonInput<KeyCode>>,
+        mut game_state: ResMut<NextState<GameState>>,
+    ) {
+        if keyboard_input.just_pressed(KeyCode::Escape) {
             game_state.set(GameState::Menu);
         }
     }
