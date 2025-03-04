@@ -344,6 +344,8 @@ mod menu {
             // Systems to handle the help menu screen
             .add_systems(OnEnter(MenuState::Help), help_menu_setup)
             .add_systems(OnExit(MenuState::Help), despawn_screen::<OnHelpMenuScreen>)
+            .add_systems(OnEnter(MenuState::Pause), pause_menu_setup) // Add pause menu setup
+        .add_systems(OnExit(MenuState::Pause), despawn_screen::<OnPauseMenuScreen>) // Add pause menu despawn
             // Common systems to all screens that handles buttons behavior
             .add_systems(
                 Update,
@@ -356,6 +358,7 @@ mod menu {
     enum MenuState {
         Main,
         Help,
+        Pause,
         #[default]
         Disabled,
     }
@@ -365,6 +368,9 @@ mod menu {
     struct OnMainMenuScreen;
     #[derive(Component)]
     struct OnHelpMenuScreen;
+    #[derive(Component)]
+    struct OnPauseMenuScreen;
+
     const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
     const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
     const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
@@ -640,6 +646,11 @@ mod menu {
                             });
                     });
             });
+    }
+    fn pause_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        let button_node = Node {
+            width: Val::Px(300.0),
+        };
     }
 
     fn menu_action(
