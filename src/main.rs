@@ -345,7 +345,10 @@ mod menu {
             .add_systems(OnEnter(MenuState::Help), help_menu_setup)
             .add_systems(OnExit(MenuState::Help), despawn_screen::<OnHelpMenuScreen>)
             .add_systems(OnEnter(MenuState::Pause), pause_menu_setup) // Add pause menu setup
-        .add_systems(OnExit(MenuState::Pause), despawn_screen::<OnPauseMenuScreen>) // Add pause menu despawn
+            .add_systems(
+                OnExit(MenuState::Pause),
+                despawn_screen::<OnPauseMenuScreen>,
+            ) // Add pause menu despawn
             // Common systems to all screens that handles buttons behavior
             .add_systems(
                 Update,
@@ -646,7 +649,7 @@ mod menu {
                             });
                     });
             });
-    }
+    }````````````````````````````````````
     fn pause_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let button_node = Node {
             width: Val::Px(300.0),
