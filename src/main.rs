@@ -23,6 +23,8 @@ enum GameState {
     Splash,
     Menu,
     Game,
+    Pause,
+    Help,
 }
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
@@ -31,10 +33,20 @@ enum DisplayQuality {
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 #[derive(Component)]
-struct RotatableCamera {
+pub struct RotatableCamera {
     radius: f32,
     yaw: f32,
     pitch: f32,
+}
+#[derive(Resource, Default)]
+pub struct PlayerState {
+    position: Vec3,
+    rotation: Quat,
+}
+#[derive(Resource, Default)]
+pub struct CameraState {
+    position: Vec3,
+    rotation: Quat,
 }
 /// # main function
 /// This function initializes the nannou framework app
@@ -58,19 +70,23 @@ fn main() {
         //.add_plugins(DefaultPlugins)
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
+        .insert_resource(PlayerState::default())
+        .insert_resource(CameraState::default())
         .init_state::<GameState>()
         .add_systems(Startup, setup)
         .add_plugins((splash::splash_plugin, menu::menu_plugin, game::game_plugin))
         .run();
 }
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        Camera {
-            order: 0,
-            ..default()
-        },
-    ));
+fn setup(mut commands: Commands, query: Query<Entity, With<Camera>>) {
+    if query.is_empty() {
+        commands.spawn((
+            Camera2d,
+            Camera {
+                order: 0,
+                ..default()
+            },
+        ));
+    }
 }
 mod splash {
     use super::{despawn_screen, GameState};
@@ -121,7 +137,7 @@ mod splash {
 mod game {
 
     use super::{despawn_screen, GameState};
-    use crate::RotatableCamera;
+    use crate::{CameraState, PlayerState, RotatableCamera};
     use bevy::{input::ButtonInput, prelude::*};
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
@@ -146,7 +162,7 @@ mod game {
     #[derive(Component)]
     struct SpawnedModel;
     #[derive(Component)]
-    struct PlayerModel;
+    pub struct PlayerModel;
     fn rotate_camera(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut param_set: ParamSet<(
@@ -225,24 +241,30 @@ mod game {
         }
     }
     /// this is where the magic happens
-    fn game_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn game_setup(
+        mut commands: Commands,
+        asset_server: Res<AssetServer>,
+        query: Query<Entity, With<PlayerModel>>,
+        query2: Query<Entity, With<RotatableCamera>>,
+    ) {
         // Spawn the atmosphere camera component
-        commands
-            .spawn((
-                Camera3d::default(),
-                Transform::from_xyz(300.0, 300.0, 100.0).looking_at(Vec3::ZERO, Vec3::Y),
-                Camera {
-                    order: 1,
-                    ..default()
-                },
-                RotatableCamera {
-                    radius: 350.0,
-                    yaw: std::f32::consts::PI,
-                    pitch: 1.0,
-                },
-            ))
-            .insert(AtmosphereCamera);
-
+        if query2.is_empty() {
+            commands
+                .spawn((
+                    Camera3d::default(),
+                    Transform::from_xyz(300.0, 300.0, 100.0).looking_at(Vec3::ZERO, Vec3::Y),
+                    Camera {
+                        order: 1,
+                        ..default()
+                    },
+                    RotatableCamera {
+                        radius: 350.0,
+                        yaw: std::f32::consts::PI,
+                        pitch: 1.0,
+                    },
+                ))
+                .insert(AtmosphereCamera);
+        }
         // Insert the default atmosphere model
         commands.insert_resource(AtmosphereModel);
         // Load and spawn the 3D model
@@ -257,18 +279,38 @@ mod game {
             ("Models/building3.glb#Scene0"),
             ("Models/building4.glb#Scene0"),
             ("Models/building5.glb#Scene0"),
+            ("Models/building1.glb#Scene0"),
+            ("Models/building2.glb#Scene0"),
+            ("Models/building3.glb#Scene0"),
+            ("Models/building4.glb#Scene0"),
+            ("Models/building5.glb#Scene0"),
+            ("Models/building1.glb#Scene0"),
+            ("Models/building2.glb#Scene0"),
+            ("Models/building3.glb#Scene0"),
+            ("Models/building4.glb#Scene0"),
+            ("Models/building5.glb#Scene0"),
         ];
         let building_coords = [
-            (25.0, 1.1, 25.0, 0.0, 83.25, 0.0),
+            (25.0, 1.1, 25.0, 0.0, 0.0, 0.0),
             (150.0, 1.1, -50.0, 0.0, 0.0, 0.0),
             (-25.0, 1.1, 25.0, 0.0, 0.0, 0.0),
             (25.0, 1.1, -25.0, 0.0, 0.0, 0.0),
             (-25.0, 1.1, -25.0, 0.0, 0.0, 0.0),
             (70.0, 1.1, 25.0, 0.0, 0.0, 0.0),
             (25.0, 1.1, 90.0, 0.0, 0.0, 0.0),
-            (25.42, 1.1, 155.0, 0.0, 0.0, 0.0),
-            (100.0, 1.1, 173.21, 0.0, 0.0, 0.0),
-            (-100.0, 1.1, 173.21, 0.0, 0.0, 0.0),
+            (25.0, 1.1, 155.0, 0.0, 0.0, 0.0),
+            (25.0, 1.1, -75.0, 0.0, 0.0, 0.0),
+            (25.0, 1.1, -125.0, 0.0, 0.0, 0.0),
+            (-70.0, 1.1, -25.0, 0.0, 0.0, 0.0),
+            (-120.0, 1.1, -25.0, 0.0, 0.0, 0.0),
+            (25.0, 1.1, -170.0, 0.0, 0.0, 0.0),
+            (-25.0, 1.1, -75.0, 0.0, 0.0, 0.0),
+            (-25.0, 1.1, -125.0, 0.0, 0.0, 0.0),
+            (-25.0, 1.1, -170.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
         ];
         let model_handle = asset_server.load("Models/island.glb#Scene0");
         commands.spawn((
@@ -276,13 +318,15 @@ mod game {
             Transform::from_xyz(0.0, 0.0, 0.0),
             SpawnedModel,
         ));
-        let player_model = asset_server.load("Models/bot_main.glb#Scene0");
-        commands.spawn((
-            SceneRoot(player_model),
-            Transform::from_xyz(0.0, 1.1, 0.0),
-            SpawnedModel,
-            PlayerModel,
-        ));
+        if query.is_empty() {
+            let player_model = asset_server.load("Models/bot_main.glb#Scene0");
+            commands.spawn((
+                SceneRoot(player_model),
+                Transform::from_xyz(0.0, 1.1, 0.0),
+                SpawnedModel,
+                PlayerModel,
+            ));
+        }
         for (model, coords) in building_list.iter().zip(building_coords.iter()) {
             let building = asset_server.load(*model);
             let rotation = Quat::from_euler(EulerRot::XYZ, coords.3, coords.4, coords.5);
@@ -298,11 +342,18 @@ mod game {
         }
         commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
     }
-    fn despawn_models(mut commands: Commands, query: Query<Entity, With<SpawnedModel>>) {
-        for entity in query.iter() {
-            commands.entity(entity).despawn_recursive();
+    fn despawn_models(
+        mut commands: Commands,
+        query: Query<(Entity, Option<&PlayerModel>), With<SpawnedModel>>,
+    ) {
+        for (entity, is_player) in query.iter() {
+            if is_player.is_none() {
+                // Only despawn non-player models
+                commands.entity(entity).despawn_recursive();
+            }
         }
     }
+
     fn game(
         time: Res<Time>,
         mut game_state: ResMut<NextState<GameState>>,
@@ -315,14 +366,37 @@ mod game {
     fn return_to_main(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut game_state: ResMut<NextState<GameState>>,
+        player_query: Query<&Transform, With<PlayerModel>>,
+        camera_query: Query<&Transform, With<RotatableCamera>>,
+        mut player_state: ResMut<PlayerState>,
+        mut camera_state: ResMut<CameraState>,
+        mut is_resuming: Local<bool>,
     ) {
         if keyboard_input.just_pressed(KeyCode::Escape) {
-            game_state.set(GameState::Menu);
+            // Save player position and rotation
+            if let Ok(player_transform) = player_query.get_single() {
+                player_state.position = player_transform.translation;
+                player_state.rotation = player_transform.rotation;
+            }
+
+            // Save camera position and rotation
+            if let Ok(camera_transform) = camera_query.get_single() {
+                camera_state.position = camera_transform.translation;
+                camera_state.rotation = camera_transform.rotation;
+            }
+
+            // Pause the game
+            game_state.set(GameState::Pause);
+            *is_resuming = true;
         }
     }
 }
 
 mod menu {
+    use super::CameraState;
+    use super::PlayerState;
+    use super::RotatableCamera;
+    use crate::game::PlayerModel;
     use bevy::{app::AppExit, color::palettes::css::CRIMSON, prelude::*};
 
     use super::{despawn_screen, GameState, TXT_CLR};
@@ -332,11 +406,7 @@ mod menu {
     // - a settings menu with two submenus and a back button
     // - two settings screen with a setting that can be set and a back button
     pub fn menu_plugin(app: &mut App) {
-        app
-            // At start, the menu is not enabled. This will be changed in `menu_setup` when
-            // entering the `GameState::Menu` state.
-            // Current screen in the menu is handled by an independent state from `GameState`
-            .init_state::<MenuState>()
+        app.init_state::<MenuState>()
             .add_systems(OnEnter(GameState::Menu), menu_setup)
             // Systems to handle the main menu screen
             .add_systems(OnEnter(MenuState::Main), main_menu_setup)
@@ -344,15 +414,20 @@ mod menu {
             // Systems to handle the help menu screen
             .add_systems(OnEnter(MenuState::Help), help_menu_setup)
             .add_systems(OnExit(MenuState::Help), despawn_screen::<OnHelpMenuScreen>)
-            .add_systems(OnEnter(MenuState::Pause), pause_menu_setup) // Add pause menu setup
+            // Systems to handle the pause menu screen
+            .add_systems(OnEnter(GameState::Pause), pause_menu_setup)
             .add_systems(
-                OnExit(MenuState::Pause),
+                OnExit(GameState::Pause),
                 despawn_screen::<OnPauseMenuScreen>,
-            ) // Add pause menu despawn
+            )
             // Common systems to all screens that handles buttons behavior
             .add_systems(
                 Update,
                 (menu_action, button_system).run_if(in_state(GameState::Menu)),
+            )
+            .add_systems(
+                Update,
+                (menu_action, button_system).run_if(in_state(GameState::Pause)),
             );
     }
 
@@ -361,7 +436,6 @@ mod menu {
     enum MenuState {
         Main,
         Help,
-        Pause,
         #[default]
         Disabled,
     }
@@ -649,13 +723,129 @@ mod menu {
                             });
                     });
             });
-    }````````````````````````````````````
-    fn pause_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    }
+    fn pause_menu_setup(
+        mut commands: Commands,
+        asset_server: Res<AssetServer>,
+        query: Query<Entity, With<Camera>>,
+    ) {
+        for entity in query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+        commands.spawn((
+            Camera2d,
+            Camera {
+                order: 0, // Ensure unique order
+                ..default()
+            },
+        ));
         let button_node = Node {
             width: Val::Px(300.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
         };
-    }
+        let button_icon_node = Node {
+            width: Val::Px(30.0),
+            position_type: PositionType::Absolute,
+            left: Val::Px(10.0),
+            ..default()
+        };
+        let button_text_font = TextFont {
+            font_size: 33.0,
+            ..default()
+        };
 
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                OnPauseMenuScreen,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(CRIMSON.into()),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new("Pause Menu"),
+                            TextFont {
+                                font_size: 67.0,
+                                ..default()
+                            },
+                            TextColor(TXT_CLR),
+                            Node {
+                                margin: UiRect::all(Val::Px(50.0)),
+                                ..default()
+                            },
+                        ));
+
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Play,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("Images/new_game.png");
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
+                                parent.spawn((
+                                    Text::new("Resume"),
+                                    button_text_font.clone(),
+                                    TextColor(TXT_CLR),
+                                ));
+                            });
+
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Help,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("Images/Help.png");
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
+                                parent.spawn((
+                                    Text::new("Help"),
+                                    button_text_font.clone(),
+                                    TextColor(TXT_CLR),
+                                ));
+                            });
+
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Quit,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("Images/exit.png");
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
+                                parent.spawn((
+                                    Text::new("Quit"),
+                                    button_text_font.clone(),
+                                    TextColor(TXT_CLR),
+                                ));
+                            });
+                    });
+            });
+    }
     fn menu_action(
         interaction_query: Query<
             (&Interaction, &MenuButtonAction),
@@ -664,6 +854,13 @@ mod menu {
         mut app_exit_events: EventWriter<AppExit>,
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
+        mut param_set: ParamSet<(
+            Query<&mut Transform, With<PlayerModel>>,
+            Query<&mut Transform, With<RotatableCamera>>,
+        )>,
+        player_state: Res<PlayerState>,
+        camera_state: Res<CameraState>,
+        mut is_resuming: Local<bool>,
     ) {
         for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Pressed {
@@ -672,13 +869,30 @@ mod menu {
                         app_exit_events.send(AppExit::Success);
                     }
                     MenuButtonAction::Play => {
+                        if *is_resuming {
+                            // Restore saved positions
+                            if let Ok(mut player_transform) = param_set.p0().get_single_mut() {
+                                player_transform.translation = player_state.position;
+                                player_transform.rotation = player_state.rotation;
+                            }
+
+                            if let Ok(mut camera_transform) = param_set.p1().get_single_mut() {
+                                camera_transform.translation = camera_state.position;
+                                camera_transform.rotation = camera_state.rotation;
+                            }
+                        }
                         game_state.set(GameState::Game);
                         menu_state.set(MenuState::Disabled);
+                        *is_resuming = false;
                     }
-
-                    MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main),
-
-                    MenuButtonAction::Help => menu_state.set(MenuState::Help),
+                    MenuButtonAction::BackToMainMenu => {
+                        game_state.set(GameState::Menu);
+                        menu_state.set(MenuState::Main);
+                    }
+                    MenuButtonAction::Help => {
+                        game_state.set(GameState::Help);
+                        menu_state.set(MenuState::Help);
+                    }
                 }
             }
         }
