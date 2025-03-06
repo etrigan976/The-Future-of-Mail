@@ -25,6 +25,7 @@ enum GameState {
     Game,
     Pause,
     Help,
+    Lose,
 }
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
@@ -143,7 +144,13 @@ mod game {
         app.add_systems(OnEnter(GameState::Game), game_setup)
             .add_systems(
                 Update,
-                (game, rotate_camera, move_player, return_to_main)
+                (
+                    game,
+                    rotate_camera,
+                    move_player,
+                    return_to_main,
+                    detect_collisions,
+                )
                     .run_if(in_state(GameState::Game)),
             )
             .add_systems(
@@ -163,6 +170,10 @@ mod game {
     struct SpawnedModel;
     #[derive(Component)]
     pub struct PlayerModel;
+    #[derive(Component)]
+    struct BuildingModel;
+    #[derive(Component)]
+    struct PlatformModel;
     fn rotate_camera(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut param_set: ParamSet<(
@@ -240,6 +251,51 @@ mod game {
             }
         }
     }
+    fn detect_collisions(
+        mut game_state: ResMut<NextState<GameState>>,
+        player_query: Query<&Transform, With<PlayerModel>>,
+        building_query: Query<&Transform, With<BuildingModel>>,
+        platform_query: Query<&Transform, With<PlatformModel>>,
+    ) {
+        if let Ok(player_transform) = player_query.get_single() {
+            for building_transform in building_query.iter() {
+                let distance = player_transform
+                    .translation
+                    .distance(building_transform.translation);
+                if distance < 20.0 {
+                    println!(
+                        "Collision detected! Player position: {:?}, Building position: {:?}, Distance: {}",
+                        player_transform.translation, building_transform.translation, distance
+                    );
+                    game_state.set(GameState::Lose);
+                    break;
+                }
+            }
+            if let Ok(platform_transform) = platform_query.get_single() {
+                let platform_center = platform_transform.translation;
+                let player_position = player_transform.translation;
+
+                // Calculate the horizontal distance between the player and the platform center
+                let horizontal_distance = ((player_position.x - platform_center.x).powi(2)
+                    + (player_position.z - platform_center.z).powi(2))
+                .sqrt();
+
+                // Base platform radius is 200m and the outer ring is 5m
+                let platform_radius = 200.0;
+                let outer_ring_width = 5.0;
+
+                if horizontal_distance > platform_radius
+                    && horizontal_distance < platform_radius + outer_ring_width
+                {
+                    println!(
+                    "Collision detected with the ring! Player position: {:?}, Platform center: {:?}, Horizontal distance: {}",
+                    player_position, platform_center, horizontal_distance
+                );
+                    game_state.set(GameState::Lose);
+                }
+            }
+        }
+    }
     /// this is where the magic happens
     fn game_setup(
         mut commands: Commands,
@@ -289,6 +345,11 @@ mod game {
             ("Models/building3.glb#Scene0"),
             ("Models/building4.glb#Scene0"),
             ("Models/building5.glb#Scene0"),
+            ("Models/building1.glb#Scene0"),
+            ("Models/building2.glb#Scene0"),
+            ("Models/building3.glb#Scene0"),
+            ("Models/building4.glb#Scene0"),
+            ("Models/building5.glb#Scene0"),
         ];
         let building_coords = [
             (25.0, 1.1, 25.0, 0.0, 0.0, 0.0),
@@ -310,20 +371,24 @@ mod game {
             (-25.0, 1.1, 90.0, 0.0, 0.0, 0.0),
             (-25.0, 1.1, 155.0, 0.0, 0.0, 0.0),
             (-70.0, 1.1, 25.0, 0.0, 0.0, 0.0),
-            (-50.0, 1.1, 70.0, 0.0, 0.0, 0.0),
+            (-120.0, 1.1, 25.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
+            (250.0, 1.1, 250.0, 0.0, 0.0, 0.0),
         ];
         let model_handle = asset_server.load("Models/island.glb#Scene0");
         commands.spawn((
             SceneRoot(model_handle),
             Transform::from_xyz(0.0, 0.0, 0.0),
-            SpawnedModel,
+            PlatformModel,
         ));
         if query.is_empty() {
             let player_model = asset_server.load("Models/bot_main.glb#Scene0");
             commands.spawn((
                 SceneRoot(player_model),
                 Transform::from_xyz(0.0, 1.1, 0.0),
-                SpawnedModel,
                 PlayerModel,
             ));
         }
@@ -338,6 +403,7 @@ mod game {
                     ..default()
                 },
                 SpawnedModel,
+                BuildingModel,
             ));
         }
         commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
@@ -420,6 +486,8 @@ mod menu {
                 OnExit(GameState::Pause),
                 despawn_screen::<OnPauseMenuScreen>,
             )
+            .add_systems(OnEnter(GameState::Lose), lose_menu_setup)
+            .add_systems(OnExit(GameState::Lose), despawn_screen::<OnLoseMenuScreen>)
             // Common systems to all screens that handles buttons behavior
             .add_systems(
                 Update,
@@ -428,6 +496,10 @@ mod menu {
             .add_systems(
                 Update,
                 (menu_action, button_system).run_if(in_state(GameState::Pause)),
+            )
+            .add_systems(
+                Update,
+                (menu_action, button_system).run_if(in_state(GameState::Lose)),
             );
     }
 
@@ -447,6 +519,8 @@ mod menu {
     struct OnHelpMenuScreen;
     #[derive(Component)]
     struct OnPauseMenuScreen;
+    #[derive(Component)]
+    struct OnLoseMenuScreen;
 
     const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
     const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -842,6 +916,68 @@ mod menu {
                                     button_text_font.clone(),
                                     TextColor(TXT_CLR),
                                 ));
+                            });
+                    });
+            });
+    }
+    fn lose_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        let button_node = Node {
+            width: Val::Px(300.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        };
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TXT_CLR),
+        );
+
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                OnLoseMenuScreen,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(CRIMSON.into()),
+                    ))
+                    .with_children(|parent| {
+                        let icon = asset_server.load("Images/Lose_Icon.png");
+                        parent.spawn((
+                            ImageNode::new(icon),
+                            Node {
+                                width: Val::Px(200.0),
+                                height: Val::Px(200.0),
+                                ..default()
+                            },
+                        ));
+
+                        parent
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Quit,
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn((Text::new("Exit"), button_text_style.clone()));
                             });
                     });
             });
