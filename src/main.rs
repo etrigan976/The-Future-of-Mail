@@ -6,7 +6,9 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, Window, WindowPlugin, WindowTheme}, //ecs::schedule,
+    audio::{AudioSource, PlaybackSettings},
 };
+
 /// IDK where i want to put prompted stuff, probably will take it out
 //use prompted::*;
 /// want to have specific flags
@@ -67,6 +69,7 @@ fn main() {
             }),
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
+            AudioPlugin::default(),
         ))
         //.add_plugins(DefaultPlugins)
         .insert_resource(DisplayQuality::Medium)
@@ -139,7 +142,8 @@ mod game {
 
     use super::{despawn_screen, GameState};
     use crate::{CameraState, PlayerState, RotatableCamera};
-    use bevy::{input::ButtonInput, prelude::*};
+    use bevy::{input::ButtonInput, prelude::*, audio::AudioPlugin};
+    use rand::{prelude::SliceRandom, thread_rng};
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
             .add_systems(
@@ -171,9 +175,17 @@ mod game {
     #[derive(Component)]
     pub struct PlayerModel;
     #[derive(Component)]
+    pub struct PeopleModel;
+    #[derive(Component)]
     struct BuildingModel;
     #[derive(Component)]
     struct PlatformModel;
+    #[derive(Resource, Deref, DerefMut)]
+    struct PauseTimer(Timer);
+    #[derive(Resource, Default)]
+    struct PlayerPoints(u32);
+    #[derive(Component)]
+    struct CheckPointCube;
     fn rotate_camera(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut param_set: ParamSet<(
@@ -252,48 +264,59 @@ mod game {
         }
     }
     fn detect_collisions(
+        mut commands: Commands,
         mut game_state: ResMut<NextState<GameState>>,
+        current_state: Res<State<GameState>>,
+        mut player_points: ResMut<PlayerPoints>,
         player_query: Query<&Transform, With<PlayerModel>>,
+        person_query: Query<(Entity, &Transform), With<SceneRoot>>,
+        cube_query: Query<(Entity, &Transform), With<CheckPointCube>>,
         building_query: Query<&Transform, With<BuildingModel>>,
         platform_query: Query<&Transform, With<PlatformModel>>,
+        time: Res<Time>,
+        audio: Res<Audio>,
+        asset_server: Res<AssetServer>,
+        mut pause_timer: ResMut<PauseTimer>,
     ) {
         if let Ok(player_transform) = player_query.get_single() {
-            for building_transform in building_query.iter() {
+            for (entity, person_transform) in person_query.iter() {
                 let distance = player_transform
                     .translation
-                    .distance(building_transform.translation);
+                    .distance(person_transform.translation);
                 if distance < 20.0 {
-                    println!(
-                        "Collision detected! Player position: {:?}, Building position: {:?}, Distance: {}",
-                        player_transform.translation, building_transform.translation, distance
-                    );
-                    game_state.set(GameState::Lose);
+                    // Collision with person model
+                    commands.entity(entity).despawn_recursive();
+                    commands.spawn(AudioSourceBundle {
+                        source: asset_server.load("audio/person_collision.ogg"),
+                        settings: PlaybackSettings::ONCE,
+                    });
+                    pause_timer.0.reset();
+                    game_state.set(GameState::Pause);
+                    spawn_light_blue_cube(&mut commands);
                     break;
                 }
             }
-            if let Ok(platform_transform) = platform_query.get_single() {
-                let platform_center = platform_transform.translation;
-                let player_position = player_transform.translation;
-
-                // Calculate the horizontal distance between the player and the platform center
-                let horizontal_distance = ((player_position.x - platform_center.x).powi(2)
-                    + (player_position.z - platform_center.z).powi(2))
-                .sqrt();
-
-                // Base platform radius is 200m and the outer ring is 5m
-                let platform_radius = 200.0;
-                let outer_ring_width = 5.0;
-
-                if horizontal_distance > platform_radius
-                    && horizontal_distance < platform_radius + outer_ring_width
-                {
-                    println!(
-                    "Collision detected with the ring! Player position: {:?}, Platform center: {:?}, Horizontal distance: {}",
-                    player_position, platform_center, horizontal_distance
-                );
-                    game_state.set(GameState::Lose);
+    
+            for (entity, cube_transform) in cube_query.iter() {
+                let distance = player_transform
+                    .translation
+                    .distance(cube_transform.translation);
+                if distance < 20.0 {
+                    // Collision with light-blue cube
+                    commands.entity(entity).despawn_recursive();
+                    commands.spawn(AudioSourceBundle {
+                        source: asset_server.load("audio/person_collision.ogg"),
+                        settings: PlaybackSettings::ONCE,
+                    });
+                    player_points.0 += 1;
+                    spawn_person_model(&mut commands, &asset_server);
+                    break;
                 }
             }
+        }
+    
+        if current_state.get() == &GameState::Pause && pause_timer.tick(time.delta()).finished() {
+            game_state.set(GameState::Game);
         }
     }
     /// this is where the magic happens
@@ -419,6 +442,7 @@ mod game {
             (-160.0, 1.1, -75.0, 0.0, 0.0, 0.0),
             (70.0, 1.1, 165.0, 0.0, 0.0, 0.0),
         ];
+        
         let model_handle = asset_server.load("Models/island.glb#Scene0");
         commands.spawn((
             SceneRoot(model_handle),
@@ -447,6 +471,9 @@ mod game {
                 BuildingModel,
             ));
         }
+        
+        commands.insert_resource(PlayerPoints::default());
+        spawn_person_model(&mut commands, &asset_server);
         commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
     }
     fn despawn_models(
@@ -459,6 +486,62 @@ mod game {
                 commands.entity(entity).despawn_recursive();
             }
         }
+    }
+    fn spawn_person_model(commands: &mut Commands, asset_server: &Res<AssetServer>) {
+        let people_coords = [
+            (165.0, 1.1, 3.0),
+            (145.0, 1.1, 110.0),
+            (145.0, 1.1, -100.0),
+            (95.0, 1.1, 155.0),
+            (95.0, 1.1, -150.0),
+            (45.0, 1.1, 180.0),
+            (50.0, 1.1, -180.0),
+            (0.0, 1.1, -190.0),
+            (0.0, 1.1, 190.0),
+            (-50.0, 1.1, 180.0),
+            (-45.0, 1.1, -180.0),
+            (-95.0, 1.1, 150.0),
+            (-95.0, 1.1, -155.0),
+            (-145.0, 1.1, 100.0),
+            (-145.0, 1.1, -110.0),
+            (-165.0, 1.1, 0.0),
+        ];
+        let person_model = asset_server.load("Models/person.glb#Scene0");
+        let mut rng = thread_rng();
+        let random_coord = people_coords.choose(&mut rng).unwrap();
+        commands.spawn((
+            SceneRoot(person_model),
+            Transform::from_xyz(random_coord.0, random_coord.1, random_coord.2),
+            PeopleModel,
+            SpawnedModel,
+        ));
+    }
+    fn spawn_light_blue_cube(commands: &mut Commands) {
+        let people_coords = [
+            (165.0, 1.1, 3.0),
+            (145.0, 1.1, 110.0),
+            (145.0, 1.1, -100.0),
+            (95.0, 1.1, 155.0),
+            (95.0, 1.1, -150.0),
+            (45.0, 1.1, 180.0),
+            (50.0, 1.1, -180.0),
+            (0.0, 1.1, -190.0),
+            (0.0, 1.1, 190.0),
+            (-50.0, 1.1, 180.0),
+            (-45.0, 1.1, -180.0),
+            (-95.0, 1.1, 150.0),
+            (-95.0, 1.1, -155.0),
+            (-145.0, 1.1, 100.0),
+            (-145.0, 1.1, -110.0),
+            (-165.0, 1.1, 0.0),
+        ];
+        let mut rng = thread_rng();
+        let random_coord = people_coords.choose(&mut rng).unwrap();
+        commands.spawn((
+            Transform::from_xyz(random_coord.0, random_coord.1, random_coord.2),
+            CheckPointCube,
+            SpawnedModel,
+        ));
     }
 
     fn game(

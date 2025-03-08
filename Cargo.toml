@@ -8,4 +8,5 @@ repository = "https://github.com/etrigan976/The-Future-of-Mail"
 license = "MIT"
 
 [dependencies]
-bevy = "0.15.1"
+bevy = {version = "0.15.1", features = ["audio"]}
+rand = "0.8"
