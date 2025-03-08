@@ -28,6 +28,8 @@ enum GameState {
     Help,
     Lose,
 }
+#[derive(Resource, Default)]
+pub struct PlayerPoints(u32);
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Medium,
@@ -74,6 +76,7 @@ fn main() {
         .insert_resource(Volume(7))
         .insert_resource(PlayerState::default())
         .insert_resource(CameraState::default())
+        .insert_resource(PlayerPoints::default())
         .init_state::<GameState>()
         .add_systems(Startup, setup)
         .add_plugins((splash::splash_plugin, menu::menu_plugin, game::game_plugin))
@@ -138,7 +141,7 @@ mod splash {
 }
 mod game {
 
-    use super::{despawn_screen, GameState};
+    use super::{despawn_screen, GameState, PlayerPoints};
     use crate::{CameraState, PlayerState, RotatableCamera};
     use bevy::{input::ButtonInput, prelude::*};
     use rand::{prelude::SliceRandom, thread_rng};
@@ -179,9 +182,6 @@ mod game {
     struct BuildingModel;
     #[derive(Component)]
     struct PlatformModel;
-
-    #[derive(Resource, Default)]
-    struct PlayerPoints(u32);
     #[derive(Component)]
     struct CheckPointCube;
     #[derive(Component)]
@@ -287,7 +287,7 @@ mod game {
                     ));
 
                     spawn_light_blue_cube(&mut commands, &asset_server);
-                    break;
+                    return;
                 }
             }
 
@@ -301,7 +301,7 @@ mod game {
                     commands.spawn(AudioPlayer::new(asset_server.load("Audio/GoodJobPal.ogg")));
                     player_points.0 += 1;
                     spawn_person_model(&mut commands, &asset_server);
-                    break;
+                    return;
                 }
             }
             for building_transform in building_query.iter() {
@@ -311,7 +311,7 @@ mod game {
                 if distance < 20.0 {
                     // Collision with building model
                     game_state.set(GameState::Lose);
-                    break;
+                    return;
                 }
             }
 
@@ -326,11 +326,11 @@ mod game {
         player_points: Res<PlayerPoints>,
         mut query: Query<&mut Text, With<Scoreboard>>,
     ) {
-        let points_text = format!("Points: {}", player_points.0);
+        let points_text = format!("Points: {}", player_points.0.to_string());
 
-        for mut text in query.iter_mut() {
-            *text = Text::new(points_text.clone());
-        }
+    for mut text in query.iter_mut() {
+        text.0 = points_text.clone();
+    }
     }
     /// this is where the magic happens
     fn game_setup(
@@ -338,7 +338,7 @@ mod game {
         asset_server: Res<AssetServer>,
         query: Query<Entity, With<PlayerModel>>,
         query2: Query<Entity, With<RotatableCamera>>,
-        player_points: Res<PlayerPoints>,
+        //player_points: Res<PlayerPoints>,
     ) {
         // Spawn the atmosphere camera component
         if query2.is_empty() {
@@ -378,7 +378,7 @@ mod game {
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new(format!("Points: {}", player_points.0)),
+                    Text::new(format!("Points: 0")),
                     TextFont {
                         font_size: 67.0,
                         ..default()
