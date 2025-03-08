@@ -6,7 +6,6 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, Window, WindowPlugin, WindowTheme}, //ecs::schedule,
-    audio::{AudioSource, PlaybackSettings},
 };
 
 /// IDK where i want to put prompted stuff, probably will take it out
@@ -69,7 +68,6 @@ fn main() {
             }),
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
-            AudioPlugin::default(),
         ))
         //.add_plugins(DefaultPlugins)
         .insert_resource(DisplayQuality::Medium)
@@ -142,26 +140,27 @@ mod game {
 
     use super::{despawn_screen, GameState};
     use crate::{CameraState, PlayerState, RotatableCamera};
-    use bevy::{input::ButtonInput, prelude::*, audio::AudioPlugin};
+    use bevy::{input::ButtonInput, prelude::*};
     use rand::{prelude::SliceRandom, thread_rng};
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
             .add_systems(
                 Update,
                 (
-                    game,
-                    rotate_camera,
-                    move_player,
-                    return_to_main,
-                    detect_collisions,
-                )
-                    .run_if(in_state(GameState::Game)),
+                    game.run_if(in_state(GameState::Game)),
+                    rotate_camera.run_if(in_state(GameState::Game)),
+                    move_player.run_if(in_state(GameState::Game)),
+                    return_to_main.run_if(in_state(GameState::Game)),
+                    detect_collisions.run_if(in_state(GameState::Game)),
+                    update_scoreboard.run_if(in_state(GameState::Game)),
+                ),
             )
             .add_systems(
                 OnExit(GameState::Game),
                 (despawn_screen::<OnGameScreen>, despawn_models),
             );
     }
+
     #[derive(Component)]
     struct OnGameScreen;
     #[derive(Resource, Deref, DerefMut)]
@@ -180,12 +179,14 @@ mod game {
     struct BuildingModel;
     #[derive(Component)]
     struct PlatformModel;
-    #[derive(Resource, Deref, DerefMut)]
-    struct PauseTimer(Timer);
+
     #[derive(Resource, Default)]
     struct PlayerPoints(u32);
     #[derive(Component)]
     struct CheckPointCube;
+    #[derive(Component)]
+    struct Scoreboard;
+
     fn rotate_camera(
         keyboard_input: Res<ButtonInput<KeyCode>>,
         mut param_set: ParamSet<(
@@ -266,17 +267,12 @@ mod game {
     fn detect_collisions(
         mut commands: Commands,
         mut game_state: ResMut<NextState<GameState>>,
-        current_state: Res<State<GameState>>,
         mut player_points: ResMut<PlayerPoints>,
         player_query: Query<&Transform, With<PlayerModel>>,
-        person_query: Query<(Entity, &Transform), With<SceneRoot>>,
+        person_query: Query<(Entity, &Transform), With<PeopleModel>>,
         cube_query: Query<(Entity, &Transform), With<CheckPointCube>>,
         building_query: Query<&Transform, With<BuildingModel>>,
-        platform_query: Query<&Transform, With<PlatformModel>>,
-        time: Res<Time>,
-        audio: Res<Audio>,
         asset_server: Res<AssetServer>,
-        mut pause_timer: ResMut<PauseTimer>,
     ) {
         if let Ok(player_transform) = player_query.get_single() {
             for (entity, person_transform) in person_query.iter() {
@@ -286,17 +282,15 @@ mod game {
                 if distance < 20.0 {
                     // Collision with person model
                     commands.entity(entity).despawn_recursive();
-                    commands.spawn(AudioSourceBundle {
-                        source: asset_server.load("audio/person_collision.ogg"),
-                        settings: PlaybackSettings::ONCE,
-                    });
-                    pause_timer.0.reset();
-                    game_state.set(GameState::Pause);
-                    spawn_light_blue_cube(&mut commands);
+                    commands.spawn(AudioPlayer::new(
+                        asset_server.load("Audio/INeedThisDelivered.ogg"),
+                    ));
+
+                    spawn_light_blue_cube(&mut commands, &asset_server);
                     break;
                 }
             }
-    
+
             for (entity, cube_transform) in cube_query.iter() {
                 let distance = player_transform
                     .translation
@@ -304,19 +298,38 @@ mod game {
                 if distance < 20.0 {
                     // Collision with light-blue cube
                     commands.entity(entity).despawn_recursive();
-                    commands.spawn(AudioSourceBundle {
-                        source: asset_server.load("audio/person_collision.ogg"),
-                        settings: PlaybackSettings::ONCE,
-                    });
+                    commands.spawn(AudioPlayer::new(asset_server.load("Audio/GoodJobPal.ogg")));
                     player_points.0 += 1;
                     spawn_person_model(&mut commands, &asset_server);
                     break;
                 }
             }
+            for building_transform in building_query.iter() {
+                let distance = player_transform
+                    .translation
+                    .distance(building_transform.translation);
+                if distance < 20.0 {
+                    // Collision with building model
+                    game_state.set(GameState::Lose);
+                    break;
+                }
+            }
+
+            let player_distance_from_center = player_transform.translation.length();
+            if player_distance_from_center > 200.0 {
+                // Collision with ring around the area
+                game_state.set(GameState::Lose);
+            }
         }
-    
-        if current_state.get() == &GameState::Pause && pause_timer.tick(time.delta()).finished() {
-            game_state.set(GameState::Game);
+    }
+    fn update_scoreboard(
+        player_points: Res<PlayerPoints>,
+        mut query: Query<&mut Text, With<Scoreboard>>,
+    ) {
+        let points_text = format!("Points: {}", player_points.0);
+
+        for mut text in query.iter_mut() {
+            *text = Text::new(points_text.clone());
         }
     }
     /// this is where the magic happens
@@ -325,6 +338,7 @@ mod game {
         asset_server: Res<AssetServer>,
         query: Query<Entity, With<PlayerModel>>,
         query2: Query<Entity, With<RotatableCamera>>,
+        player_points: Res<PlayerPoints>,
     ) {
         // Spawn the atmosphere camera component
         if query2.is_empty() {
@@ -346,6 +360,33 @@ mod game {
         }
         // Insert the default atmosphere model
         commands.insert_resource(AtmosphereModel);
+        commands
+            .spawn((
+                Scoreboard,
+                Node {
+                    width: Val::Px(200.0),
+                    height: Val::Px(50.0),
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(10.0),
+                    right: Val::Px(10.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::all(Val::Px(10.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)), // Semi-transparent background
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new(format!("Points: {}", player_points.0)),
+                    TextFont {
+                        font_size: 67.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                ));
+            });
+
         // Load and spawn the 3D model
         let building_list = [
             ("Models/building1.glb#Scene0"),
@@ -442,7 +483,7 @@ mod game {
             (-160.0, 1.1, -75.0, 0.0, 0.0, 0.0),
             (70.0, 1.1, 165.0, 0.0, 0.0, 0.0),
         ];
-        
+
         let model_handle = asset_server.load("Models/island.glb#Scene0");
         commands.spawn((
             SceneRoot(model_handle),
@@ -471,7 +512,7 @@ mod game {
                 BuildingModel,
             ));
         }
-        
+
         commands.insert_resource(PlayerPoints::default());
         spawn_person_model(&mut commands, &asset_server);
         commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
@@ -516,7 +557,7 @@ mod game {
             SpawnedModel,
         ));
     }
-    fn spawn_light_blue_cube(commands: &mut Commands) {
+    fn spawn_light_blue_cube(commands: &mut Commands, asset_server: &Res<AssetServer>) {
         let people_coords = [
             (165.0, 1.1, 3.0),
             (145.0, 1.1, 110.0),
@@ -537,7 +578,9 @@ mod game {
         ];
         let mut rng = thread_rng();
         let random_coord = people_coords.choose(&mut rng).unwrap();
+        let cube_model = asset_server.load("Models/checkCube.glb#Scene0");
         commands.spawn((
+            SceneRoot(cube_model),
             Transform::from_xyz(random_coord.0, random_coord.1, random_coord.2),
             CheckPointCube,
             SpawnedModel,
