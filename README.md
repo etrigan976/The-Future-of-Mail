@@ -29,7 +29,7 @@ Up Arrow - camera angle down\
 Down Arrow - camera angle up\
 Left Arrow - camera angle right\
 Right Arrow - camera angle left\
-Escape Key - return to main menu
+Escape Key - return to main menu / pause
 
 ## Testing reasoning
 
@@ -39,15 +39,29 @@ For testing the game, i couldnt really do any kind of automatic testing due to n
 
 ### What worked?
 
+I think the concept worked. Mail right now is very much dependent on automatically controlled robots and this game resembles the concept pretty well. i think also the geometry designs of the people, city, buildings and robot worked well, except for the fact i had to speed learn blender for textures. this rush definitely shows in a view of models.
+
 ### What didn't work?
+
+i couldnt fit in any special mechanics in the game because time would not allow it unfortunately. i was gonna have some extra obstacles like a person model that would come around the course and cause the player to lose but i couldnt determine how to have a kind of AI for it for pathfinding. i also didn't have enough to make music for the game, even though i have never used a audio production application before.
 
 ### Satisfaction
 
+I am pretty satisfied with the result at least given how much time i had. I think it turned out fine as a prototype game showcasing the engine.
+
 ### Future Improvement
+
+I would like to improve the composition of the textures because i was not anticipating how raw the texture painting is for blender, so it got sloppy. Additionally, i would like to have it where for the people models to have a bunch of different textures so that i can have an array of paths and have the game randomly select the textures to use.
 
 ## Tools Used to make this
 
 ### Modeling: Blender
+
+### Audio: Audacity
+
+### Engine: Bevy
+
+### Programming Language: Rust
 
 ## Licensing
 
