@@ -1,19 +1,10 @@
-/*
-    local crate imports
-*/
+/// global crate imports
 /// we are using bevy for the game
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, Window, WindowPlugin, WindowTheme}, //ecs::schedule,
 };
-
-/// IDK where i want to put prompted stuff, probably will take it out
-//use prompted::*;
-/// want to have specific flags
-/// -h help
-/// -f freecam
-//use std::env;
 /*
     global data
 */
