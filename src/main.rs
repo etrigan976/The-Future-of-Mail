@@ -19,13 +19,8 @@ enum GameState {
     Help,
     Lose,
 }
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut, Default)]
 pub struct PlayerPoints(usize);
-impl Default for PlayerPoints {
-    fn default() -> Self {
-        PlayerPoints(0)
-    }
-}
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Medium,
@@ -139,7 +134,7 @@ mod game {
 
     use super::{despawn_screen, GameState, PlayerPoints};
     use crate::{CameraState, PlayerState, RotatableCamera, TXT_CLR};
-    use bevy::{input::ButtonInput, prelude::* };
+    use bevy::{input::ButtonInput, prelude::*};
     use rand::{prelude::SliceRandom, thread_rng};
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
@@ -373,9 +368,9 @@ mod game {
                     position_type: PositionType::Absolute,
                     ..default()
                 },
-
             ))
-            .with_child((TextSpan::default(),
+            .with_child((
+                TextSpan::default(),
                 TextFont {
                     font_size: 40.0,
                     ..default()
@@ -509,9 +504,9 @@ mod game {
             ));
         }
 
-        commands.insert_resource(PlayerPoints::default());
+        //commands.insert_resource(PlayerPoints::default());
         spawn_person_model(&mut commands, &asset_server);
-        commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
+        commands.insert_resource(GameTimer(Timer::from_seconds(60.0, TimerMode::Once)));
     }
     fn despawn_models(
         mut commands: Commands,
@@ -602,21 +597,32 @@ mod game {
         mut is_resuming: Local<bool>,
     ) {
         if keyboard_input.just_pressed(KeyCode::Escape) {
-            // Save player position and rotation
-            if let Ok(player_transform) = player_query.get_single() {
-                player_state.position = player_transform.translation;
-                player_state.rotation = player_transform.rotation;
-            }
+            if keyboard_input.pressed(KeyCode::Escape)
+                && !keyboard_input.pressed(KeyCode::KeyW)
+                && !keyboard_input.pressed(KeyCode::KeyS)
+                && !keyboard_input.pressed(KeyCode::KeyA)
+                && !keyboard_input.pressed(KeyCode::KeyD)
+                && !keyboard_input.pressed(KeyCode::ArrowUp)
+                && !keyboard_input.pressed(KeyCode::ArrowDown)
+                && !keyboard_input.pressed(KeyCode::ArrowLeft)
+                && !keyboard_input.pressed(KeyCode::ArrowRight)
+            {
+                // Save player position and rotation
+                if let Ok(player_transform) = player_query.get_single() {
+                    player_state.position = player_transform.translation;
+                    player_state.rotation = player_transform.rotation;
+                }
 
-            // Save camera position and rotation
-            if let Ok(camera_transform) = camera_query.get_single() {
-                camera_state.position = camera_transform.translation;
-                camera_state.rotation = camera_transform.rotation;
-            }
+                // Save camera position and rotation
+                if let Ok(camera_transform) = camera_query.get_single() {
+                    camera_state.position = camera_transform.translation;
+                    camera_state.rotation = camera_transform.rotation;
+                }
 
-            // Pause the game
-            game_state.set(GameState::Pause);
-            *is_resuming = true;
+                // Pause the game
+                game_state.set(GameState::Pause);
+                *is_resuming = true;
+            }
         }
     }
 }
