@@ -28,8 +28,13 @@ enum GameState {
     Help,
     Lose,
 }
-#[derive(Resource, Default)]
-pub struct PlayerPoints(u32);
+#[derive(Resource, Deref, DerefMut)]
+pub struct PlayerPoints(usize);
+impl Default for PlayerPoints {
+    fn default() -> Self {
+        PlayerPoints(0)
+    }
+}
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Medium,
@@ -76,7 +81,7 @@ fn main() {
         .insert_resource(Volume(7))
         .insert_resource(PlayerState::default())
         .insert_resource(CameraState::default())
-        .insert_resource(PlayerPoints::default())
+        .insert_resource(PlayerPoints(0))
         .init_state::<GameState>()
         .add_systems(Startup, setup)
         .add_plugins((splash::splash_plugin, menu::menu_plugin, game::game_plugin))
@@ -142,8 +147,8 @@ mod splash {
 mod game {
 
     use super::{despawn_screen, GameState, PlayerPoints};
-    use crate::{CameraState, PlayerState, RotatableCamera};
-    use bevy::{input::ButtonInput, prelude::*};
+    use crate::{CameraState, PlayerState, RotatableCamera, TXT_CLR};
+    use bevy::{input::ButtonInput, prelude::* };
     use rand::{prelude::SliceRandom, thread_rng};
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
@@ -324,13 +329,17 @@ mod game {
     }
     fn update_scoreboard(
         player_points: Res<PlayerPoints>,
-        mut query: Query<&mut Text, With<Scoreboard>>,
+        player_points_root: Single<Entity, (With<Scoreboard>, With<Text>)>,
+        //mut query: Query<&mut Text, With<Scoreboard>>,
+        mut writer: TextUiWriter,
     ) {
-        let points_text = format!("Points: {}", player_points.0.to_string());
-
-    for mut text in query.iter_mut() {
-        text.0 = points_text.clone();
-    }
+        /*let points_text = format!("Points: {}", player_points.0.to_string());
+        println!("Updating scoreboard with points: {}", points_text);
+        for mut text in query.iter_mut() {
+            println!("Found a scoreboard entity, updating text.");
+            text.0 = points_text.clone();
+        }*/
+        *writer.text(*player_points_root, 1) = player_points.to_string();
     }
     /// this is where the magic happens
     fn game_setup(
@@ -363,29 +372,25 @@ mod game {
         commands
             .spawn((
                 Scoreboard,
-                Node {
-                    width: Val::Px(200.0),
-                    height: Val::Px(50.0),
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(10.0),
-                    right: Val::Px(10.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    padding: UiRect::all(Val::Px(10.0)),
+                Text::new("Points: "),
+                TextFont {
+                    font_size: 40.0,
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)), // Semi-transparent background
+                TextColor(TXT_CLR),
+                Node {
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+
             ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Text::new(format!("Points: 0")),
-                    TextFont {
-                        font_size: 67.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(1.0, 1.0, 1.0)),
-                ));
-            });
+            .with_child((TextSpan::default(),
+                TextFont {
+                    font_size: 40.0,
+                    ..default()
+                },
+                TextColor(TXT_CLR),
+            ));
 
         // Load and spawn the 3D model
         let building_list = [
